@@ -2797,3 +2797,105 @@ void HAL_CAN_WakeUpFromRxMsgCallback(CAN_HandleTypeDef *hcan);
 void HAL_CAN_ErrorCallback(CAN_HandleTypeDef *hcan);
 ```
 
+### CAN_driver.c
+
+```c
+#include "can_driver.h"
+#include "FreeRTOS.h"
+#include "task.h"
+#include "lcdinit.h"
+#include "lcd.h"
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+
+/*偶数可以发送出去 奇数不能*/
+
+/*设置CAN过滤器*/
+int CAN_Filter_Init(void)
+{
+    /*设置CAN过滤器规则*/
+    CAN_FilterTypeDef can_filter;
+    can_filter.FilterBank = 0; //过滤器组
+    can_filter.FilterMode = CAN_FILTERMODE_IDMASK; //屏蔽位模式
+    can_filter.FilterScale = CAN_FILTERSCALE_32BIT; //32位
+
+    //设置规则
+    can_filter.FilterIdHigh = 0x0020; //高16位
+    can_filter.FilterIdLow = 0x0000; //低16位
+    can_filter.FilterMaskIdHigh = 0x0020; //屏蔽位高16位
+    can_filter.FilterMaskIdLow = 0x0006; //屏蔽位低16位
+
+
+    //设置过滤器的报文在哪一个FIFO中接收
+    can_filter.FilterFIFOAssignment = CAN_RX_FIFO0;
+    can_filter.FilterActivation = CAN_FILTER_ENABLE;
+
+    //把设置好的过滤器参数设置到can模块中
+    HAL_CAN_ConfigFilter(&hcan1, &can_filter);
+
+    //启动can模块
+    HAL_CAN_Start(&hcan1);
+    vTaskDelay(10);
+
+    return 0;
+}
+
+/*发送CAN数据*/
+int CAN_sendMessage(uint32_t msgid, uint8_t *txData, uint8_t len)
+{
+    CAN_TxHeaderTypeDef can_tx_header;
+    uint32_t tx_mailbox;
+
+    //配置发送报文的格式 stdid + 数据 + RTR + IDE + DLC
+    can_tx_header.StdId = msgid; //标准ID
+    can_tx_header.RTR = 0; //数据帧
+    can_tx_header.IDE = 0; //标准帧
+    can_tx_header.DLC = len; //数据长度
+
+    //查看是否有空闲邮箱
+    while (HAL_CAN_GetTxMailboxesFreeLevel(&hcan1) == 0); //没有空闲邮箱就等待
+
+    //发送数据
+    HAL_CAN_AddTxMessage(&hcan1, &can_tx_header, txData, &tx_mailbox);
+
+    //发送成功 在LCD显示结果
+    char buf[32] = {0};
+    sprintf(buf, "send ok! id=%d", can_tx_header.StdId);
+    LCD_ShowString(10,0,(const uint8_t *)buf,WHITE,BLACK,12,0);
+
+    vTaskDelay(100);
+
+    return 0;
+
+}
+
+/*接收CAN数据*/
+int CAN_receiveMessage(uint8_t *rxData){
+    
+    CAN_RxHeaderTypeDef can_rx_header;
+
+    //判断接收邮箱是否有数据
+    if (HAL_CAN_GetRxFifoFillLevel(&hcan1, CAN_RX_FIFO0) == 0)
+    {
+        //没有收到数据
+        LCD_ShowString(10,10,(const uint8_t *)"meg not receive",WHITE,BLACK,12,0);
+        LCD_ShowString(10,20,"                        ",WHITE,BLACK,12,0);
+        
+    }
+    else
+    {
+        //收到数据
+        LCD_ShowString(10,10,(const uint8_t *)"                 ",WHITE,BLACK,12,0);
+        HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0, &can_rx_header, rxData);
+        char buf[32] = {0};
+        sprintf(buf, "id=%d,data=%d", can_rx_header.StdId,*rxData);
+        LCD_ShowString(10,20,(const uint8_t *)buf,WHITE,BLACK,12,0);
+    }
+    vTaskDelay(100);
+
+    return 0;
+}
+
+```
+
