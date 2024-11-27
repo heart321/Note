@@ -185,6 +185,25 @@ struct ListNode *findKthToTail(struct ListNode *head, int k)
     return last;
 }
 
+// 输出链表的中间节点
+struct ListNode *findMiddleNode(struct ListNode *head)
+{
+    if(head == NULL)
+    {
+        return NULL;
+    }
+
+    struct ListNode *fast = head;
+    struct ListNode *slow = head;
+
+    while(fast != NULL && fast->next != NULL)
+    {
+        fast = fast->next->next;
+        slow = slow->next;
+    }
+    return slow;
+}
+
 int main(void)
 {
     struct ListNode *head = initList();
