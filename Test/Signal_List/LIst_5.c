@@ -246,6 +246,33 @@ struct ListNode *reverseList(struct ListNode *head)
     
 }
 
+// 环形链表
+struct ListNode *detectCycle(struct ListNode *head)
+{
+    if(head == NULL)
+    {
+        return NULL;
+    }
+    struct ListNode *fast = head;
+    struct ListNode *slow = head;
+
+    while(fast && fast->next)
+    {
+        fast = fast->next->next;
+        slow = slow->next;
+        if(fast == slow)
+        {
+            fast = head;
+            while(fast != slow)
+            {
+                fast = fast->next;
+                slow = slow->next;
+            }
+            return fast;
+        }
+    }
+    return NULL;
+}
 
 int main(int argc, char const *argv[])
 {
