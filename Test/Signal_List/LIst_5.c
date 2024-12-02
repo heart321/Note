@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 
 struct ListNode
 {
@@ -272,6 +273,48 @@ struct ListNode *detectCycle(struct ListNode *head)
         }
     }
     return NULL;
+}
+
+// 回文链表
+bool isPalindrome(struct ListNode *head)
+{
+    struct ListNode *fast = head;
+    struct ListNode *slow = head;
+
+    while(fast && fast->next)
+    {
+        fast = fast->next->next;
+        slow = slow->next;
+    }
+
+    struct ListNode *cur = slow;
+    struct ListNode *pre = NULL;
+
+    //反转链表
+    while(cur)
+    {
+        //保存下一个的值
+        struct ListNode *temp = cur->next;
+
+        //重新连接当前节点
+        cur->next = pre;
+        //更新Pre
+        pre = cur;
+        //cur指针后移
+        cur = temp;
+    }
+
+    // 比较
+    while(pre && head)
+    {
+        if(pre->val != head->val)
+        {
+            return false;
+        }
+        pre = pre->next;
+        head = head->next;
+    }
+    return true;
 }
 
 int main(int argc, char const *argv[])
