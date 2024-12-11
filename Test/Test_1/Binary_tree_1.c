@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 
 typedef struct BiTNode {
     int data;
@@ -84,6 +85,67 @@ void PostOrderTraverse(BiTree T) {
     }
 
     return; //递归结束条件
+}
+
+// 求二叉树的深度
+int Depth(BiTree T) {
+    if(T == NULL)
+    {
+        return 0;
+    }
+    
+    int leftLength = Depth(T->left);
+    int rightLength = Depth(T->right);
+
+    return leftLength > rightLength ? leftLength + 1 : rightLength + 1;
+}
+
+// 判断二叉树是否相等
+void PreOrder(struct BiTNode *root, int *arr,int *index) {
+    (*index)++;
+    if(root == NULL) {
+        arr[*index] = 0;
+        return;
+    }
+    arr[*index] = root->data;
+    PreOrder(root->left, arr, index);
+    PreOrder(root->right, arr, index);
+}
+bool isEqual(BiTree T1, BiTree T2) {
+    int i = 0,j = 0;
+    int arr1[1000], arr2[1000];
+    memset(arr1, 0, sizeof(arr1));
+    memset(arr2, 0, sizeof(arr2));
+    if(T1 == NULL && T2 == NULL) {
+        return true;
+    }
+    if(T1 == NULL || T2 == NULL) {
+        return false;
+    }
+    PreOrder(T1, arr1, &i);
+    PreOrder(T2, arr2, &j);
+    for(int k = 0;k < 1000;k++) {
+        if(arr1[k] != arr2[k]) {
+            return false;
+        }
+    }
+    return true;
+
+}
+
+// 判断二叉树是不是平衡二叉树
+bool isBalanced(BiTree T) {
+    if(T == NULL) {
+        return true;
+    }
+    int leftDepth = Depth(T->left);
+    int rightDepth = Depth(T->right);
+
+    if(abs(leftDepth - rightDepth) < 2 == false) {
+        return false;
+    }
+
+    return isBalanced(T->left) && isBalanced(T->right) && abs(leftDepth - rightDepth) < 2;
 }
 
 int main(int argc, char const *argv[])
