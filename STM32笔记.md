@@ -1,9 +1,3 @@
-
-
-# STM32创建工程（标准库）
-
-https://blog.csdn.net/2301_80655427/article/details/137519905#:~:text=2.%E5%BB%BA%E7%AB%8B%E6%A0%87%E5%87%86%E5%BA%93%E6%96%87%E4%BB%B6%E7%9A%84%E8%BF%87%E7%A8%8B%202.1%E5%88%9B%E5%BB%BA%E5%B7%A5%E7%A8%8B%E6%96%87%E4%BB%B6%E5%A4%B9%202.2%E6%89%93%E5%BC%80Keil%202.3%20%E5%9C%A8%E5%B7%A5%E7%A8%8B%E6%96%87%E4%BB%B6%E5%A4%B9%E4%B8%8B%E9%9D%A2%E5%86%8D%E5%88%9B%E4%B8%80%E4%B8%AA%E6%96%87%E4%BB%B6%E5%A4%B9,2.4%20%E5%B7%A5%E7%A8%8B%E5%90%8D%E7%A7%B0%202.5%20%E9%80%89%E6%8B%A9%E5%9E%8B%E5%8F%B7%203.%E6%B7%BB%E5%8A%A0%E5%B7%A5%E7%A8%8B%E5%BF%85%E8%A6%81%E6%96%87%E4%BB%B6
-
 # STM32GPIO模式
 
 ## 输入模式
@@ -109,6 +103,77 @@ UART 通用异步收发器
    
    ![image-20240606090036847](C:\Users\15819\AppData\Roaming\Typora\typora-user-images\image-20240606090036847.png)
 
+## 串口轮询模式：(HAL库)
+
+```c
+char message[] = "Hello World!\r\n";
+char receive_message[10];
+/* USER CODE END 2 */
+
+/* Infinite loop */
+/* USER CODE BEGIN WHILE */
+  while (1) {
+      HAL_UART_Receive(&huart1,(uint8_t *)receive_message,10,HAL_MAX_DELAY);
+      HAL_UART_Transmit(&huart1,(uint8_t *)receive_message,10,HAL_MAX_DELAY);
+  /* USER CODE END WHILE */
+
+  /* USER CODE BEGIN 3 */
+  }
+```
+
+
+
+## 串口中断模式：(HAL库)
+
+```c
+//串口回调函数
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+    if(huart == &huart1)
+    {
+        HAL_UART_Transmit_IT(&huart1,(uint8_t *)message, strlen(message));
+    }
+    HAL_UART_Receive_IT(&huart1,(uint8_t *)receive_message,sizeof (receive_message));
+
+}
+```
+
+
+
+## 串口配合DMA方式：(HAL库)
+
+![image-20241211150738768](C:\Users\15819\AppData\Roaming\Typora\typora-user-images\image-20241211150738768.png)
+
+```c
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+    if(huart == &huart1)
+    {
+        HAL_UART_Transmit_DMA(&huart1,(uint8_t *)message, strlen(message));
+    }
+    HAL_UART_Receive_DMA(&huart1,(uint8_t *)receive_message,sizeof (receive_message));
+
+}
+```
+
+## 串口接收不定长的数据：
+
+使用串口的空闲中断。
+
+```c
+//串口空闲中断
+void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
+{
+    if(huart == &huart1)
+    {
+        HAL_UART_Transmit_DMA(&huart1,(uint8_t *)receive_message,Size);
+
+        HAL_UARTEx_ReceiveToIdle_DMA(&huart1,(uint8_t *)receive_message,sizeof (receive_message));
+        __HAL_DMA_DISABLE_IT(&hdma_usart1_rx,DMA_IT_HT); // 关闭DMA过半中断
+    }
+}
+```
+
 # 配置STM32外部中断流程（标准库：按键控制LED）
 
 1. 开启RCC时钟，把涉及到的时钟都打开
@@ -209,23 +274,236 @@ UART 通用异步收发器
 
     
 
-# I2C总线
+# 定时器
 
-![image-20240606092712532](C:\Users\15819\AppData\Roaming\Typora\typora-user-images\image-20240606092712532.png)
+## 定时器输出比较
 
-![image-20240606092810741](C:\Users\15819\AppData\Roaming\Typora\typora-user-images\image-20240606092810741.png)
+![image-20240702160931230](C:\Users\15819\AppData\Roaming\Typora\typora-user-images\image-20240702160931230.png)
+
+## STM32定时器的计算公式
+
+![img](https://i-blog.csdnimg.cn/blog_migrate/4bbf3448dfe2956abbc8f8f95875f14b.jpeg)
+
+公式解释：
+
+ARR（TIM_Period）：自动重装载值，是定时器溢出前的计数值
+
+PSC（TIM_Prescaler）：预分频值，是用来降低定时器时钟频率的参数
+
+Tclk：定时器的输入时钟频率（单位Mhz），通常为系统时钟频率或者定时器外部时钟频率
+
+Tout：定时器溢出时间（单位us）。一定要注意这个单位是us。
 
 
 
-![image-20240606093502769](C:\Users\15819\AppData\Roaming\Typora\typora-user-images\image-20240606093502769.png)
+## 基本介绍
 
-![image-20240606093655906](C:\Users\15819\AppData\Roaming\Typora\typora-user-images\image-20240606093655906.png)
+STM32总共有8个定时器，分别是2个高级定时器（TIM1、TIM8），4个通用定时器（TIM2、TIM3、TIM4、TIM5）和2个基本定时器（TIM5、TIM6），根据具体的芯片看数据手册。
 
-![image-20240606093731285](C:\Users\15819\AppData\Roaming\Typora\typora-user-images\image-20240606093731285.png)
+三种定时器的的区别如下： 即高级定时器具有捕获/比较通道和互补输出，通用定时器只有捕获/比较通道，基本定时器没有以上两者。
+
+![img](https://i-blog.csdnimg.cn/blog_migrate/da5b3fa2ccd9477ae9ae2020e48bac4d.png)
+
+### 通用定时器的特点：
+
+STM32的众多定时器中我们使用最多的是高级定时器和通用定时器，而高级定时器一般也是用作通用定时器的功能，下面我们就以通用定时器为例进行讲解，其功能和特点包括：
+
+- 位于低速的APB1总线上(APB1)
+- 16 位向上、向下、向上/向下(中心对齐)计数模式，自动装载计数器（TIMx_CNT）。
+- 16 位可编程(可以实时修改)预分频器(TIMx_PSC)，计数器时钟频率的分频系数 为 1～65535 之间的任意数值。
+- 4 个独立通道（TIMx_CH1~4），这些通道可以用来作为：
+  - 输入捕获
+  - 输出比较
+  - PWM生成（边缘或中间对齐模式）
+  - 单脉冲输出模式
+- 可使用外部信号（TIMx_ETR）控制定时器和定时器互连（可以用 1 个定时器控制另外一个定时器）的同步电路。
+- 如下事件发生时产生中断/DMA（6个独立的IRQ/DMA请求生成器）：
+  - 更新：[计数器](https://so.csdn.net/so/search?q=计数器&spm=1001.2101.3001.7020)向上溢出/向下溢出，计数器初始化(通过[软件](https://marketing.csdn.net/p/3127db09a98e0723b83b2914d9256174?pId=2782&utm_source=glcblog&spm=1001.2101.3001.7020)或者内部/外部触发) 
+  - 触发事件(计数器启动、停止、初始化或者由内部/外部触发计数) 
+  - 输入捕获
+  - 输出比较 
+  - 支持针对定位的增量(正交)编码器和霍尔传感器电路 
+  - 触发输入作为外部时钟或者按周期的电流管理
+- STM32 的通用定时器可以被用于：测量输入信号的脉冲长度(输入捕获)或者产生输出波形(输出比较和 PWM)等。
+- 使用定时器预分频器和 RCC 时钟控制器预分频器，脉冲长度和波形周期可以在几个微秒到几个毫秒间调整。STM32 的每个通用定时器都是完全独立的，没有互相共享的任何资源。
+
+### 计数模式：
+
+通用定时器可以向上计数、向下计数、向上向下双向计数模式。
+
+1. **向上计数模式**：计数器从0计数到自动加载值(TIMx_ARR)，然后重新从0开始计数并且产生一个计数器溢出事件。
+2. **向下计数模式**：计数器从自动装入的值(TIMx_ARR)开始向下计数到0，然后从自动装入的值重新开始，并产生一个计数器向下溢出事件。
+3. **中央对齐模式（向上/向下计数）**：计数器从0开始计数到自动装入的值-1，产生一个计数器溢出事件，然后向下计数到1并且产生一个计数器溢出事件；然后再从0开始重新计数。
+
+![](C:\Users\15819\AppData\Roaming\Typora\typora-user-images\image-20240702153611644.png)
+
+### 定时器工作原理：
+
+#### 1.定时器基本框图：
+
+下图为定时器基本框图：
+
+![img](https://i-blog.csdnimg.cn/blog_migrate/960f0c62fc8156b5cad8d14bb5c18a59.png)
+
+款图可以分为四大部分（用红色笔标出）分别是：①时钟产生器部分，②时基单元部分，③输入捕获部分、④输出比较部分。
 
 
 
-# ADC转换（单通道）光敏电阻传感器
+#### 2.时钟产生器部分：
+
+在第一部分的时钟选择上，STM32定时器有4种时钟源选择（图种篮笔标识），分别是：
+
+- 内部时钟（CK_INT）
+- 外部时钟模式：外部触发输入（ETR）
+- 内部触发输入（ITRx）：使用一个定时器作为另一个定时器的预分频器，如可以配置一个定时器Timer1而作为另一个定时器Timer2的预分频器
+- 外部时钟模式：外部输入脚（TIX）
+
+这四种情况可由下图来表示：
+
+![img](https://i-blog.csdnimg.cn/blog_migrate/ba69c99756975cbc795e9449f99c263d.png)
+
+其中，内部触发输入口1~4除了ITR1/ITR2/ITR3/ITR4之外还有一种情况：用一个定时器作为另一个定时器的分频器。
+
+外部捕获比较引脚有两种，分别是：
+
+引脚1：TI1FP1或TI1F_ED
+
+引脚2：TI2FP2
+
+
+
+#### 3.时基单元
+
+![image-20240702152403497](C:\Users\15819\AppData\Roaming\Typora\typora-user-images\image-20240702152403497.png)
+
+![image-20240702152141184](C:\Users\15819\AppData\Roaming\Typora\typora-user-images\image-20240702152141184.png)
+
+![image-20240702152210185](C:\Users\15819\AppData\Roaming\Typora\typora-user-images\image-20240702152210185.png)
+
+时基单元如上图所示：它包括三个寄存器：计数器寄存器（TIMx_CNT)、预分频器寄存器（TIMx_PSC)和自动装载寄存器（TIMx_ARR)。对这三个寄存器的介绍如下：
+
+- 计数器寄存器（TIMx_CNT）：向上计数、向下计数或中心对齐计数。
+- 预分频器寄存器（TIMx_PSC)：可将时钟频率按1到65535之间的任意值进行分频，可在运行时改变其设置值。
+- 自动装载寄存器（TIMx_ARR)：
+  - 如果TIMx_CR1寄存器中的ARPE位为0，ARR寄存器的内容将直接写入影子寄存器；
+  - 如果ARPE为1，ARR寄存器将在每次的更新时间UEV发生时，传送到影子寄存器。
+  - 如果TIMx_CR1中的UDIS位为0，当计数器溢出，产生更新时间。
+
+
+
+#### 4.输入捕获通道
+
+- IC1、2和IC3、4可以分别通过软件设置将其映射到TI1、TI2和TI3、TI4;
+- 4个16位捕捉比较寄存器可以编程用于存放检测到对应的每一次输入捕捉时计数器的值。
+- 当产生一次捕捉，相应的的CCxIF标志位被置1；同时如果中断或DMA请求使能，则产生中断或DMA请求。
+- 如果单CCxIF标志位已经为1，当又产生一个捕捉，则捕捉溢出标志位CCxOF将被置1。
+
+![img](https://i-blog.csdnimg.cn/blog_migrate/7e9b77d5f3d474ac342a114a7eafb64c.png)
+
+#### 5.输出比较通道（PWM）
+
+- PWM模式运行产生：
+
+  - 频率和占空比可以进行如下设定：
+
+    - 一个自动重装寄存器用于设定PWM的周期
+
+    - 每个PWM通道有一个捕捉比较寄存器用于设定占空时间
+
+      例如：产生一个40KHZ的PWM信号：在定时器2的时钟为72MHZ下，占空比为50%：
+
+      预分频器设置为0（计数器的时钟为TIM1CLK(O+1)）,自动重装寄存器设置为1799，CCRx寄存器设置为899.
+
+- 两种可设置PWM模式：
+
+  - 边沿对齐模式
+
+  - 中心对齐模式
+
+    ![img](https://i-blog.csdnimg.cn/blog_migrate/9b093f31edaaeec5cb7875d2db4cd048.png)
+
+    
+
+##### 	PWM计算公式：
+
+`ARR（TIM_Period）` 是计数值；
+
+`PSC（TIM_Prescaler）` 是预[分频](https://so.csdn.net/so/search?q=分频&spm=1001.2101.3001.7020)值。
+
+TIMx->CCR:输出比较寄存器。
+
+**周期：Fpwm = 主频 / （（ARR+1）*（PSC+1））； 单位（hz）**
+
+**占空比计算公式：duty circle = TIMx->CCR / ARR**
+
+
+
+例如：STM32F103C8T6           主频 72MHZ          ARR = 100 -1   PSC = 72-1   TIMx->CCR = 20
+
+Fpwm = 72M / (100 * 72) = 10Khz  所以PWM的周期是： 1/ 10000 = 100us     占空比为：20 / 100 = 20%
+
+
+
+### 定时器中断相关寄存器：
+
+计数器当前值寄存器CNT
+
+![img](https://i-blog.csdnimg.cn/blog_migrate/12f28d1aa09124fd1b12d6967f8dc00d.png)
+
+预分频寄存器TIMx_PSC
+
+![img](https://i-blog.csdnimg.cn/blog_migrate/b2963996f425f37deda328068fcd1332.png)
+
+自动重装寄存器TIMx_ARR
+
+![img](https://i-blog.csdnimg.cn/blog_migrate/54109e51db9bd0b0975fc8bafcb9d356.png)
+
+控制寄存器TIMx_CR1
+
+![img](https://i-blog.csdnimg.cn/blog_migrate/54109e51db9bd0b0975fc8bafcb9d356.png)
+
+DMA中断使能寄存器：
+
+![img](https://i-blog.csdnimg.cn/blog_migrate/d6f6ca83188c0a2e6eddd9a36a2b9606.png)
+
+TIM1延时1S中断：
+
+![image-20241212212249563](C:\Users\15819\AppData\Roaming\Typora\typora-user-images\image-20241212212249563.png)
+
+```c
+HAL_TIM_Base_Start_IT(&htim1); //中断定时器启动函数
+
+//定时器中断回调函数
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+  if(htim == &htim1)
+  {
+    HAL_UART_Transmit_IT(&huart1,(uint8_t*)message, strlen(message));
+  }
+}
+```
+
+**PWM模式在FreeRTOS中。**
+
+# 独立看门狗
+
+![image-20241023211322099](C:\Users\15819\AppData\Roaming\Typora\typora-user-images\image-20241023211322099.png)
+
+ 看门狗这东西虽然简单，但我相信绝大多程序员没有足够重视它。使用看门狗保证系统正常地运行是非常有必要的。我们在设计产品时，代码以及硬件设计缺陷或是外界电磁干扰都有可能使系统死机，如果不能正常对其进行复位，系统的可靠性将大打折扣。看门狗分为软件看门狗和硬件看门狗两类，其原理都是使用一个独立定时器来计时，超出时间就会产生复位信号，主要区别看是否具有独立的硬件结构，如果有，就是硬件看门狗，如果是一个普通定时器实现的那么就是软件看门狗。STM32片内有两个看门狗：独立看门狗IWDG以及窗口看门狗WWDG。
+
+## 两个狗的区别
+
+- 独立看门狗没有[中断](https://so.csdn.net/so/search?q=中断&spm=1001.2101.3001.7020)，窗口看门狗有中断
+- 独立看门狗有硬件软件之分，窗口看门狗只能软件控制
+- 独立看门狗只有下限，窗口看门狗有下限和上限
+- 独立看门狗是12位递减的。窗口看门狗是7位递减的
+- 独立看门狗是用的内部的大约40KHZ RC振荡器，窗口看门狗是用的系统时钟APB1ENR
+
+
+
+# ADC
+
+## ADC转换（单通道）光敏电阻传感器(标准库)
 
 ```c
 	ADC_RegularChannelConfig(ADC1,ADC_Channel_0,1,ADC_SampleTime_55Cycles5);//选择输入通道ADC_SampleTime_55Cycles5采样周期
@@ -251,56 +529,23 @@ UART 通用异步收发器
 	while(ADC_GetCalibrationStatus(ADC1) == SET);//等待ADC校准结束
 ```
 
-# 定时器时基单元
-
-![image-20240702152141184](C:\Users\15819\AppData\Roaming\Typora\typora-user-images\image-20240702152141184.png)
-
-![image-20240702152210185](C:\Users\15819\AppData\Roaming\Typora\typora-user-images\image-20240702152210185.png)
-
-STM32单片机时钟来源
-
-![image-20240702152403497](C:\Users\15819\AppData\Roaming\Typora\typora-user-images\image-20240702152403497.png)
-
-1. RCC时钟树
-2. 来自从模式控制器的触发信号（TRIG）
-3. 来自外部参考信号（ETRF）
-
-## 计数模式
-
-![image-20240702153611644](C:\Users\15819\AppData\Roaming\Typora\typora-user-images\image-20240702153611644.png)
-
-# 定时器输出比较
-
-![image-20240702160931230](C:\Users\15819\AppData\Roaming\Typora\typora-user-images\image-20240702160931230.png)
-
-# STM32定时器的计算公式
-
-![img](https://i-blog.csdnimg.cn/blog_migrate/4bbf3448dfe2956abbc8f8f95875f14b.jpeg)
-
-公式解释：
-
-ARR（TIM_Period）：自动重装载值，是定时器溢出前的计数值
-
-PSC（TIM_Prescaler）：预分频值，是用来降低定时器时钟频率的参数
-
-Tclk：定时器的输入时钟频率（单位Mhz），通常为系统时钟频率或者定时器外部时钟频率
-
-Tout：定时器溢出时间（单位us）。一定要注意这个单位是us
 
 
+Analog to Digital Converter(模拟-数字转换器），ADC采样是将模拟信号转换成数字信号的过程。ADC可以将引脚上连续变化的模拟电压转换为内存中存储的数字变量，建立模拟电路到数字电路的桥梁。12位逐次逼近型ADC，1us转换时间。输入电压范围：0到3.3V，转换结果范围：0~4095。
 
-# 独立看门狗
+## ADC的采样步骤：
 
-![image-20241023211322099](C:\Users\15819\AppData\Roaming\Typora\typora-user-images\image-20241023211322099.png)
+1. **采样保持：**在一定时间内，对模拟信号进行采样并保持其电压值不变。
+2. **量化：**将采样保持的模拟信号电压值转换成数字量，通常使用比特位数表示。
+3. **编码：**将量化后的数字量编码成二进制的形式。
+4. **存储：**将编码后的数字信号存储在计算机或其它数字处理设备中，以便进行进一步的数字信号处理。
 
- 看门狗这东西虽然简单，但我相信绝大多程序员没有足够重视它。使用看门狗保证系统正常地运行是非常有必要的。我们在设计产品时，代码以及硬件设计缺陷或是外界电磁干扰都有可能使系统死机，如果不能正常对其进行复位，系统的可靠性将大打折扣。看门狗分为软件看门狗和硬件看门狗两类，其原理都是使用一个独立定时器来计时，超出时间就会产生复位信号，主要区别看是否具有独立的硬件结构，如果有，就是硬件看门狗，如果是一个普通定时器实现的那么就是软件看门狗。STM32片内有两个看门狗：独立看门狗IWDG以及窗口看门狗WWDG。
+ADC采样的精度和速度很大程度上取决于采样率和比特数的选择。较高的采样率和比特数可以提供更精确的数字信号，但也会增加系统的成本和复杂性。
 
-## 两个狗的区别
+## ADC的特性：
 
-- 独立看门狗没有[中断](https://so.csdn.net/so/search?q=中断&spm=1001.2101.3001.7020)，窗口看门狗有中断
-- 独立看门狗有硬件软件之分，窗口看门狗只能软件控制
-- 独立看门狗只有下限，窗口看门狗有下限和上限
-- 独立看门狗是12位递减的。窗口看门狗是7位递减的
-- 独立看门狗是用的内部的大约40KHZ RC振荡器，窗口看门狗是用的系统时钟APB1ENR
-
-# 
+1. **分辨率：**ADC的分辨率是指它能够将输入信号分成多少个离散的量化级别。通常用比特数来表示，例如8位ADC的分变率位2^8=256个量化级别。
+2. **采样率：**ADC的采样率是指它能够对输入信号进行采样的频率。采样率越高，可以捕获到更高频率的信号，但也需要更高的处理能力和更大的存储空间。
+3. **精度：**ADC的精度是指它能够将输入信号转换为数字信号的准确程度。精度通常用百分比误差或最小有效位（LSB）来表示。
+4. **噪声：**ADC的噪声是指在信号转换的过程中引入的随机误差。噪声越小，ADC的精度和可靠性就高。
+5. **功耗：**ADC的功耗是指它在工作过程中消耗的电力。功耗越低，可以延长电池寿命或降低系统成本。

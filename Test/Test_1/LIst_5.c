@@ -131,7 +131,7 @@ void printList(struct ListNode *head)
 }
 
 // 删除列表中的重复值
-void deleteDuplicate(struct ListNode *head)
+struct ListNode* deleteDuplicate(struct ListNode *head)
 {
     if (head == NULL)
     {
