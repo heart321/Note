@@ -619,6 +619,8 @@ ADC采样的精度和速度很大程度上取决于采样率和比特数的选�
 从**ADCx_INT0-ADCx_INT15** 对应三个ADC的16个**外部通道**，进行**模拟信号转换** 此外，还有两个内部通道：**温度检测**或者**内部电压检测**
 选择对应通道之后，便会选择**对应GPIO引脚**，相关的引脚定义和描述可在开发板的数据手册里找。
 
+
+
 ## 注入通道，规则通道
 
 我们看到，在选择了ADC的相关通道引脚之后，在模拟至数字转换器中有两个通道，注入通道，规则通道，
@@ -757,10 +759,252 @@ TCONV = 采样时间 + 12.5个周期 其中1周期为1/ADCCLK
 
 和转换通道区别不大。
 
-## WatchDog
+## 模拟看门狗中断
 
 ![image-20241221153809748](C:\Users\15819\AppData\Roaming\Typora\typora-user-images\image-20241221153809748.png)
 
 **Enable Analog WatchDog Mode 是否使能模拟看门狗中断**
 
 ![在这里插入图片描述](https://i-blog.csdnimg.cn/blog_migrate/ae7851b6a00ff54fd5dad4a703193c15.png)
+
+
+
+
+
+# RTC实时时钟
+
+**RTC (Real Time Clock)**：实时时钟
+
+**RTC是个独立的定时器**。RTC模块拥有一个连续计数的计数器，在相应的软件配置下，可以提供时钟日历的功能。修改计数器的值可以重新设置当前时间和日期 RTC还包含用于管理低功耗模式的自动唤醒单元。
+
+在断电情况下 RTC仍可以独立运行 只要芯片的备用电源一直供电,RTC上的时间会一直走。
+
+RTC实质是一个掉电后还继续运行的定时器,从定时器的角度来看,相对于通用定时器TIM外设,它的功能十分简单,只有计时功能(也可以触发中断)。但其高级指出也就在于掉电之后还可以正常运行。
+
+两个 32 位寄存器包含二进码十进数格式 (BCD) 的秒、分钟、小时（ 12 或 24 小时制）、星期几、日期、月份和年份。此外，还可提供二进制格式的亚秒值。系统可以自动将月份的天数补偿为 28、29（闰年）、30 和 31 天。
+
+上电复位后，所有RTC寄存器都会受到保护，以防止可能的非正常写访问。
+
+无论器件状态如何（运行模式、低功耗模式或处于复位状态），只要电源电压保持在工作范围内，RTC使不会停止工作。
+
+**RCT特征：**
+● 可编程的预分频系数：分频系数高为220。
+● 32位的可编程计数器，可用于较长时间段的测量。
+● 2个分离的时钟：用于APB1接口的PCLK1和RTC时钟(RTC时钟的频率必须小于PCLK1时钟 频率的四分之一以上)。
+● 可以选择以下三种RTC的时钟源：
+     **● HSE时钟除以128；**
+     **● LSE振荡器时钟；**
+     **● LSI振荡器时钟**
+
+● 2个独立的复位类型：
+     ● APB1接口由系统复位；
+     ● RTC核心(预分频器、闹钟、计数器和分频器)只能由后备域复位
+
+● 3个专门的可屏蔽中断：
+     ● 1.闹钟中断，用来产生一个软件可编程的闹钟中断。
+
+     ● 2.秒中断，用来产生一个可编程的周期性中断信号(长可达1秒)。
+    
+     ● 3.溢出中断，指示内部可编程计数器溢出并回转为0的状态。
+
+RTC时钟源：
+三种不同的时钟源可被用来驱动系统时钟(SYSCLK)：
+
+**● HSI振荡器时钟**
+**● HSE振荡器时钟**
+**● PLL时钟**
+
+这些设备有以下2种二级时钟源：
+
+● 40kHz低速内部RC，可以用于驱动独立看门狗和通过程序选择驱动RTC。 RTC用于从停机/待机模式下自动唤醒系统。
+● 32.768kHz低速外部晶体也可用来通过程序选择驱动RTC(RTCCLK)。
+
+![image-20241223181527305](C:\Users\15819\AppData\Roaming\Typora\typora-user-images\image-20241223181527305.png)
+
+**Activate Clock Source 激活时钟源**
+
+**Activate calendar激活日历**
+
+**Binary data format 十六进制**
+**BCD data format BCD码进制**
+
+使用自动配置，初始化时间必须使用BCD data format，原因是库函数存在bug，如果使用Binary data format，月份配置会出错，比如说11月，配置时会赋值为RTC_MONTH_NOVEMBER，而此宏定义值为0x11，也就是说其十进制值为17。
+
+## HAL库函数（RTC）
+
+```c
+/*设置系统时间*/
+HAL_StatusTypeDef HAL_RTC_SetTime(RTC_HandleTypeDef *hrtc, RTC_TimeTypeDef *sTime, uint32_t Format) 
+/*读取系统时间*/
+HAL_StatusTypeDef HAL_RTC_GetTime(RTC_HandleTypeDef *hrtc, RTC_TimeTypeDef *sTime, uint32_t Format)
+/*设置系统日期*/
+HAL_StatusTypeDef HAL_RTC_SetDate(RTC_HandleTypeDef *hrtc, RTC_DateTypeDef *sDate, uint32_t Format)
+/*读取系统日期*/
+HAL_StatusTypeDef HAL_RTC_GetDate(RTC_HandleTypeDef *hrtc, RTC_DateTypeDef *sDate, uint32_t Format)
+/*启动报警功能*/
+HAL_StatusTypeDef HAL_RTC_SetAlarm(RTC_HandleTypeDef *hrtc, RTC_AlarmTypeDef *sAlarm, uint32_t Format)
+/*设置报警中断*/
+HAL_StatusTypeDef HAL_RTC_SetAlarm_IT(RTC_HandleTypeDef *hrtc, RTC_AlarmTypeDef *sAlarm, uint32_t Format)
+/*报警时间回调函数*/
+__weak void HAL_RTC_AlarmAEventCallback(RTC_HandleTypeDef *hrtc)
+/*写入后备储存器*/
+void HAL_RTCEx_BKUPWrite(RTC_HandleTypeDef *hrtc, uint32_t BackupRegister, uint32_t Data)
+/*读取后备储存器*/
+uint32_t HAL_RTCEx_BKUPRead(RTC_HandleTypeDef *hrtc, uint32_t BackupRegister  
+
+```
+
+RTC.c
+
+```c
+  RTC_DateTypeDef RTC_Date;
+  RTC_TimeTypeDef RTC_Time;
+  char Data[30] = "";
+  /* USER CODE END 2 */
+
+  /* Infinite loop */
+  /* USER CODE BEGIN WHILE */
+  while (1)
+  {
+      //HAL_UART_Transmit(&huart1,"hello",5,HAL_MAX_DELAY);
+      HAL_RTC_GetTime(&hrtc,&RTC_Time,RTC_FORMAT_BIN);
+      HAL_RTC_GetDate(&hrtc,&RTC_Date,RTC_FORMAT_BIN);
+      sprintf(Data,"%d-%d-%d \r\n %02d:%02d:%02d \r\n",
+              RTC_Date.Year+2000,RTC_Date.Month,RTC_Date.Date,RTC_Time.Hours,RTC_Time.Minutes,RTC_Time.Seconds);
+      HAL_UART_Transmit(&huart1,(uint8_t*)Data,30,HAL_MAX_DELAY);
+      HAL_Delay(1000);
+    /* USER CODE END WHILE */
+
+    /* USER CODE BEGIN 3 */
+  }
+
+Format： 获取日期的格式
+RTC_FORMAT_BIN 使用16进制
+RTC_FORMAT_BCD 使用BCD进制
+
+    
+/**
+  * @brief  RTC Time structure definition
+  */
+typedef struct
+{
+  uint8_t Hours;            /*!< Specifies the RTC Time Hour.
+                                 This parameter must be a number between Min_Data = 0 and Max_Data = 23 */
+
+  uint8_t Minutes;          /*!< Specifies the RTC Time Minutes.
+                                 This parameter must be a number between Min_Data = 0 and Max_Data = 59 */
+
+  uint8_t Seconds;          /*!< Specifies the RTC Time Seconds.
+                                 This parameter must be a number between Min_Data = 0 and Max_Data = 59 */
+
+} RTC_TimeTypeDef;
+
+
+/**
+  * @brief  RTC Date structure definition
+  */
+typedef struct
+{
+  uint8_t WeekDay;  /*!< Specifies the RTC Date WeekDay (not necessary for HAL_RTC_SetDate).
+                         This parameter can be a value of @ref RTC_WeekDay_Definitions */
+
+  uint8_t Month;    /*!< Specifies the RTC Date Month (in BCD format).
+                         This parameter can be a value of @ref RTC_Month_Date_Definitions */
+
+  uint8_t Date;     /*!< Specifies the RTC Date.
+                         This parameter must be a number between Min_Data = 1 and Max_Data = 31 */
+
+  uint8_t Year;     /*!< Specifies the RTC Date Year.
+                         This parameter must be a number between Min_Data = 0 and Max_Data = 99 */
+
+} RTC_DateTypeDef;
+
+```
+
+**RTC掉电重置**
+但是呢，在hal库中生成的代码，每次断电就RTC时间会重置，每次上电都会重新初始化时间
+
+因为HAL库设置了一个BKP寄存器保存一个标志。每次单片机启动时都读取这个标志并判断是不是预先设定的值：如度果不是就初始化RTC并设置时间，再设置标志为预期值；如果是预期值就跳过初始化和时间设置，继续执行后面的程序
+
+所以这里我们只需要每次上电执行RTC初始化之前，将标志设置为预期值即可。
+
+```c
+ void MX_RTC_Init(void)
+{
+
+  /* USER CODE BEGIN RTC_Init 0 */
+		RTC_TimeTypeDef time;   //时间结构体参数
+		RTC_DateTypeDef datebuff;   //日期结构体参数
+  /* USER CODE END RTC_Init 0 */
+
+  RTC_TimeTypeDef sTime = {0};
+  RTC_DateTypeDef DateToUpdate = {0};
+
+  /* USER CODE BEGIN RTC_Init 1 */
+	__HAL_RCC_BKP_CLK_ENABLE();       //开启后备区域时钟
+	__HAL_RCC_PWR_CLK_ENABLE();		  //开启电源时钟
+  /* USER CODE END RTC_Init 1 */
+  /**Initialize RTC Only 
+  */
+  hrtc.Instance = RTC;
+  hrtc.Init.AsynchPrediv = RTC_AUTO_1_SECOND;
+  hrtc.Init.OutPut = RTC_OUTPUTSOURCE_NONE;
+  if (HAL_RTC_Init(&hrtc) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /* USER CODE BEGIN Check_RTC_BKUP */
+	if(HAL_RTCEx_BKUPRead(&hrtc,RTC_BKP_DR1)!= 0x5051)
+	{
+		
+  /* USER CODE END Check_RTC_BKUP */
+
+  /**Initialize RTC and set the Time and Date 
+  */
+  sTime.Hours = 0x14;
+  sTime.Minutes = 0x30;
+  sTime.Seconds = 0x0;
+
+  if (HAL_RTC_SetTime(&hrtc, &sTime, RTC_FORMAT_BCD) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  DateToUpdate.WeekDay = RTC_WEEKDAY_SATURDAY;
+  DateToUpdate.Month = RTC_MONTH_APRIL;
+  DateToUpdate.Date = 0x25;
+  DateToUpdate.Year = 0x20;
+
+  if (HAL_RTC_SetDate(&hrtc, &DateToUpdate, RTC_FORMAT_BCD) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN RTC_Init 2 */
+
+	__HAL_RTC_SECOND_ENABLE_IT(&hrtc,RTC_IT_SEC);	 //开启RTC时钟秒中断
+	datebuff = DateToUpdate;  //把日期数据拷贝到自己定义的data中
+	HAL_RTCEx_BKUPWrite(&hrtc, RTC_BKP_DR1, 0x5051);//向指定的后备区域寄存器写入数据
+	HAL_RTCEx_BKUPWrite(&hrtc, RTC_BKP_DR2, (uint16_t)datebuff.Year);
+	HAL_RTCEx_BKUPWrite(&hrtc, RTC_BKP_DR3, (uint16_t)datebuff.Month);
+	HAL_RTCEx_BKUPWrite(&hrtc, RTC_BKP_DR4, (uint16_t)datebuff.Date);
+	HAL_RTCEx_BKUPWrite(&hrtc, RTC_BKP_DR5, (uint16_t)datebuff.WeekDay);
+	
+  }
+	else
+	{
+		datebuff.Year    = HAL_RTCEx_BKUPRead(&hrtc, RTC_BKP_DR2);
+		datebuff.Month   = HAL_RTCEx_BKUPRead(&hrtc, RTC_BKP_DR3);
+		datebuff.Date    = HAL_RTCEx_BKUPRead(&hrtc, RTC_BKP_DR4);
+		datebuff.WeekDay = HAL_RTCEx_BKUPRead(&hrtc, RTC_BKP_DR5);
+		DateToUpdate = datebuff;
+		if (HAL_RTC_SetDate(&hrtc, &DateToUpdate, RTC_FORMAT_BIN) != HAL_OK)
+		{
+			Error_Handler();
+		}
+		__HAL_RTC_SECOND_ENABLE_IT(&hrtc,RTC_IT_SEC);	 //开启RTC时钟秒中断		
+	}
+
+}
+
+```
+

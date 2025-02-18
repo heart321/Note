@@ -397,3 +397,52 @@ typedef int keep_pedantic_happy;
 
 ### 5.GUI移植
 
+![image-20250204002728941](C:\Users\15819\AppData\Roaming\Typora\typora-user-images\image-20250204002728941.png)
+
+![image-20250204002714322](C:\Users\15819\AppData\Roaming\Typora\typora-user-images\image-20250204002714322.png)
+
+代码导出得到custom，generated,main.c文件。将文件添加到Keil工程目录。
+
+![image-20250204002842529](C:\Users\15819\AppData\Roaming\Typora\typora-user-images\image-20250204002842529.png)
+
+添加的头文件目录：
+
+![image-20250204002901011](C:\Users\15819\AppData\Roaming\Typora\typora-user-images\image-20250204002901011.png)
+
+然后在lvgl的任务中运行即可：
+
+![image-20250204002954153](C:\Users\15819\AppData\Roaming\Typora\typora-user-images\image-20250204002954153.png)
+
+```
+#include "app_lvgl_task.h"
+#include "FreeRTOS.h"
+#include "task.h"
+#include "lvgl.h"
+#include "gui_guider.h" //添加头文件
+
+// 创建一个全局变量
+lv_ui guider_ui;
+
+void lvgl_task(void *pvParameters)
+{
+	
+	setup_ui(&guider_ui);
+	while(1)
+    {
+		
+		lv_task_handler();
+		vTaskDelay(pdMS_TO_TICKS(1));
+    }
+
+
+}
+
+
+void vApplicationTickHook()
+{
+	//告诉LVGL过去1ms
+	lv_tick_inc(1);
+}
+
+```
+

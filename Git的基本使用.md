@@ -125,7 +125,7 @@ git rebase // 变基  两种方式的并顺序不同
 git log --graph --oneline --decorate --all
 
 //删除分支
-git branch -d 
+git branch -D
 
 
 ```
